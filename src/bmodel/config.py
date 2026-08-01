@@ -1,3 +1,5 @@
+from typing import get_args
+
 from .base import ModelConfig, ChatModelCapability, ModelsAvailable
 from .env import GEMMA4_CONFIG
 
@@ -59,4 +61,12 @@ def get_model_config(
     if model is not None:
         return model
 
-    return _live_models[capability]
+    if capability not in get_args(ChatModelCapability):
+        raise ValueError(f"Unsupported capability `{capability}`")
+
+    model = _live_models.get(capability)
+
+    if model is None:
+        raise ValueError(f"Model not available for capbability `{capability}`")
+
+    return model
