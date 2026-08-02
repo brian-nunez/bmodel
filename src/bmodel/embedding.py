@@ -1,7 +1,9 @@
+import math
+
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 
-from .base import ModelConfig
+from .base import ModelConfig, SimilarityMetric
 from .config import get_embedding_model_config
 
 
@@ -26,3 +28,24 @@ def init_embedding_model(
             raise ValueError(
                 f"Unsupported model provider: `{config.provider}`",
             )
+
+
+def similarity(
+    a: list[float],
+    b: list[float],
+    *,
+    metric: SimilarityMetric = "cosine",
+) -> float:
+    match metric:
+        case "cosine":
+            dot_product = sum(x * y for x, y in zip(a, b))
+            magnitude_a = math.sqrt(sum(x * x for x in a))
+            magnitude_b = math.sqrt(sum(y * y for y in b))
+            return dot_product / (magnitude_a * magnitude_b)
+        case "dot":
+            return sum(x * y for x, y in zip(a, b))
+        case "euclidean":
+            distance = math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+            return 1 / (1 + distance)
+        case _:
+            raise ValueError(f"Unsupported similarity metric: `{metric}`")
