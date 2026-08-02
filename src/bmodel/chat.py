@@ -5,16 +5,7 @@ from .base import ChatModelCapability, ModelConfig
 from .config import get_model_config
 
 
-def init_model(
-    *,
-    capability: ChatModelCapability = "chat",
-    model: ModelConfig | None = None,
-) -> BaseChatModel:
-    config = get_model_config(
-        capability,
-        model=model,
-    )
-
+def build_chat_model(config: ModelConfig) -> BaseChatModel:
     def api_key_func() -> str:
         return config.api_key
 
@@ -34,6 +25,19 @@ def init_model(
             raise ValueError(
                 f"Unsupported model provider: `{config.provider}`",
             )
+
+
+def init_model(
+    *,
+    capability: ChatModelCapability = "chat",
+    model: ModelConfig | None = None,
+) -> BaseChatModel:
+    config = get_model_config(
+        capability,
+        model=model,
+    )
+
+    return build_chat_model(config)
 
 
 def init_chat_model(

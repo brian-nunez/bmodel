@@ -12,17 +12,25 @@ DEFAULT_MODELS: ModelsAvailable = {
 }
 
 DEFAULT_EMBEDDING_MODEL: ModelConfig = EMBEDDINGGEMMA_CONFIG
+DEFAULT_VIDEO_MODEL: ModelConfig = GEMMA4_CONFIG
+DEFAULT_AUDIO_MODEL: ModelConfig = GEMMA4_CONFIG
 
 _live_models: ModelsAvailable = dict(DEFAULT_MODELS)
 _live_embedding_model: ModelConfig = DEFAULT_EMBEDDING_MODEL
+_live_video_model: ModelConfig = DEFAULT_VIDEO_MODEL
+_live_audio_model: ModelConfig = DEFAULT_AUDIO_MODEL
 
 
 def reset_defaults() -> ModelsAvailable:
     global _live_models
     global _live_embedding_model
+    global _live_video_model
+    global _live_audio_model
 
     _live_models = dict(DEFAULT_MODELS)
     _live_embedding_model = DEFAULT_EMBEDDING_MODEL
+    _live_video_model = DEFAULT_VIDEO_MODEL
+    _live_audio_model = DEFAULT_AUDIO_MODEL
 
     return dict(_live_models)
 
@@ -76,20 +84,78 @@ def get_embedding_model_config(
     return _live_embedding_model
 
 
+def configure_video_model(model: ModelConfig) -> ModelConfig:
+    global _live_video_model
+
+    _live_video_model = model
+
+    return _live_video_model
+
+
+def get_video_model_config(
+    *,
+    model: ModelConfig | None = None,
+) -> ModelConfig:
+    resolved = model if model is not None else _live_video_model
+
+    if not resolved.supports_vision:
+        raise ValueError(
+            f"Configured video model `{resolved.model}` does not declare "
+            "vision support (`ModelConfig.supports_vision=False`). Set "
+            "`supports_vision=True` on the ModelConfig if this model "
+            "actually accepts image input."
+        )
+
+    return resolved
+
+
+def configure_audio_model(model: ModelConfig) -> ModelConfig:
+    global _live_audio_model
+
+    _live_audio_model = model
+
+    return _live_audio_model
+
+
+def get_audio_model_config(
+    *,
+    model: ModelConfig | None = None,
+) -> ModelConfig:
+    resolved = model if model is not None else _live_audio_model
+
+    if not resolved.supports_audio:
+        raise ValueError(
+            f"Configured audio model `{resolved.model}` does not declare "
+            "audio support (`ModelConfig.supports_audio=False`). Set "
+            "`supports_audio=True` on the ModelConfig if this model "
+            "actually accepts audio input."
+        )
+
+    return resolved
+
+
 def get_model_config(
     capability: ChatModelCapability,
     *,
     model: ModelConfig | None = None,
 ) -> ModelConfig:
     if model is not None:
-        return model
+        resolved = model
+    else:
+        if capability not in get_args(ChatModelCapability):
+            raise ValueError(f"Unsupported capability `{capability}`")
 
-    if capability not in get_args(ChatModelCapability):
-        raise ValueError(f"Unsupported capability `{capability}`")
+        resolved = _live_models.get(capability)
 
-    model = _live_models.get(capability)
+        if resolved is None:
+            raise ValueError(f"Model not available for capbability `{capability}`")
 
-    if model is None:
-        raise ValueError(f"Model not available for capbability `{capability}`")
+    if capability == "vision" and not resolved.supports_vision:
+        raise ValueError(
+            f"Configured vision model `{resolved.model}` does not declare "
+            "vision support (`ModelConfig.supports_vision=False`). Set "
+            "`supports_vision=True` on the ModelConfig if this model "
+            "actually accepts image input."
+        )
 
-    return model
+    return resolved
