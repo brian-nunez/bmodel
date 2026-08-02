@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from bmodel.base import ModelConfig, ModelProvider
-from bmodel.embedding import init_embedding_model
+from bmodel.base import ModelConfig, ModelProvider, SimilarityMetric
+from bmodel.embedding import init_embedding_model, similarity
 
 
 def _make_config(provider: ModelProvider) -> ModelConfig:
@@ -52,3 +52,38 @@ def test_init_embedding_model_api_key_is_lazily_resolved():
 
     _, kwargs = mock_openai_embeddings.call_args
     assert kwargs["api_key"]() == "secret-key"
+
+
+def test_similarity_cosine_identical_vectors():
+    assert similarity([1.0, 0.0], [1.0, 0.0], metric="cosine") == pytest.approx(1.0)
+
+
+def test_similarity_cosine_orthogonal_vectors():
+    assert similarity([1.0, 0.0], [0.0, 1.0], metric="cosine") == pytest.approx(0.0)
+
+
+def test_similarity_defaults_to_cosine():
+    assert similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0)
+
+
+def test_similarity_dot_product():
+    assert similarity([2.0, 3.0], [4.0, 5.0], metric="dot") == pytest.approx(23.0)
+
+
+def test_similarity_euclidean_identical_vectors():
+    assert similarity([1.0, 0.0], [1.0, 0.0], metric="euclidean") == pytest.approx(1.0)
+
+
+def test_similarity_euclidean_known_distance():
+    # distance = sqrt((3-0)**2 + (4-0)**2) = 5, so similarity = 1 / (1 + 5)
+    assert similarity([0.0, 0.0], [3.0, 4.0], metric="euclidean") == pytest.approx(1 / 6)
+
+
+def test_similarity_rejects_unknown_metric():
+    with pytest.raises(ValueError, match="Unsupported similarity metric"):
+        similarity([1.0, 0.0], [0.0, 1.0], metric=cast(SimilarityMetric, "unknown"))
+
+
+@pytest.mark.parametrize("metric", get_args(SimilarityMetric))
+def test_similarity_accepts_all_known_metrics(metric):
+    assert similarity([1.0, 0.0], [0.0, 1.0], metric=metric) is not None

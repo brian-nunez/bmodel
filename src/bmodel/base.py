@@ -14,6 +14,12 @@ ModelProvider = Literal[
     "openrouter",
 ]
 
+SimilarityMetric = Literal[
+    "cosine",
+    "dot",
+    "euclidean",
+]
+
 
 @dataclass(frozen=True)
 class ModelConfig:
