@@ -1,6 +1,6 @@
 # bmodel
 
-Helper functions for spinning up LangChain chat models across my homelab apps. Ships with sane defaults pointed at my local llama.cpp servers, and lets any app that installs it override those defaults at runtime.
+Helper functions for spinning up LangChain chat, embedding, video, and audio models across my homelab apps. Ships with sane defaults pointed at my local llama.cpp servers, and lets any app that installs it override those defaults at runtime.
 
 ## Installation
 
@@ -97,6 +97,116 @@ model = init_chat_model(
 
 Precedence, highest to lowest: explicit `model=` argument → `configure()` override → built-in default.
 
+### Vision and audio require a capability flag
+
+Any model used for vision, video, or audio input must have the matching flag set on its `ModelConfig` — `supports_vision=True` and/or `supports_audio=True`. Both default to `False`. This is a self-declared check (it verifies you *said* the model supports it, not that it's actually true), but it stops a text-only model from being silently used somewhere it can't work:
+
+```python
+ModelConfig(
+    provider="openai",
+    base_url="https://api.openai.com/v1",
+    api_key="sk-...",
+    model="gpt-4o",
+    supports_vision=True,
+    supports_audio=True,
+)
+```
+
+## Embeddings
+
+```python
+from bmodel import init_embedding_model
+
+embeddings = init_embedding_model()
+vector = embeddings.embed_query("hello world")
+vectors = embeddings.embed_documents(["doc one", "doc two"])
+```
+
+`init_embedding_model()` returns a LangChain `Embeddings` instance, defaulting to a local EmbeddingGemma model. Override it the same way as chat models, with `configure_embedding_model()` for a shared default or `model=` for a single call:
+
+```python
+from bmodel import configure_embedding_model, ModelConfig
+
+configure_embedding_model(
+    ModelConfig(provider="openai", base_url="...", api_key="sk-...", model="text-embedding-3-small"),
+)
+```
+
+Compare embedding vectors with `similarity()`:
+
+```python
+from bmodel import similarity
+
+score = similarity(vector_a, vector_b)                    # cosine (default)
+score = similarity(vector_a, vector_b, metric="dot")       # dot product
+score = similarity(vector_a, vector_b, metric="euclidean") # inverted distance, still "higher = more similar"
+```
+
+Pure Python, no dependencies — meant for learning/prototyping and one-off scripts, not production-scale vector search. For real search over many documents, push the comparison into the database instead (`pgvector`, `sqlite-vec`) rather than comparing in a Python loop.
+
+## Video
+
+Analyzes a local video file: samples still frames from it with `ffmpeg`/`ffprobe` (must be on `PATH`) and sends them to a chat model as image content — the model never receives the raw video file itself. Requires a `ModelConfig` with `supports_vision=True`.
+
+```python
+import asyncio
+from bmodel import init_video_model
+
+async def main():
+    video_model = init_video_model()
+    result = await video_model.ainvoke(
+        "/path/to/video.mp4",
+        prompt="What happens in this video?",
+    )
+    print(result.content)
+
+asyncio.run(main())
+```
+
+`invoke()` (sync) works the same way. Override the default with `configure_video_model()` or pass `model=` for a single call.
+
+Tunable frame sampling:
+
+```python
+video_model = init_video_model(
+    frames_per_second=2.0,  # sampling rate — auto-reduced for long videos so frames still span the whole thing
+    max_frames=30,          # hard cap on total frames extracted
+    max_width=768,          # frames are downscaled to this width, never upscaled
+)
+```
+
+Pass `include_audio=True` to also extract the video's audio track and send it alongside the frames in the same request, if the model accepts audio input too (requires `supports_audio=True`). By default this reuses the same model as the frames; pass `audio_model=` to use a different `ModelConfig` for the audio specifically. The audio track is capped at `max_audio_seconds` (default 600s) before extraction:
+
+```python
+video_model = init_video_model(include_audio=True, max_audio_seconds=120.0)
+```
+
+## Audio
+
+```python
+from bmodel import init_audio_model
+
+audio_model = init_audio_model()
+```
+
+Returns a plain LangChain `BaseChatModel`, defaulting to a local Gemma model. Requires a `ModelConfig` with `supports_audio=True`. To send actual audio, build a `HumanMessage` with an audio content block yourself:
+
+```python
+import base64
+from langchain.messages import HumanMessage
+from langchain_core.messages.content import create_audio_block
+
+audio_bytes = open("clip.mp3", "rb").read()
+message = HumanMessage(content=[
+    {"type": "text", "text": "What is said in this clip?"},
+    create_audio_block(base64=base64.b64encode(audio_bytes).decode("ascii"), mime_type="audio/mp3"),
+])
+
+result = audio_model.invoke([message])
+```
+
+Override the default with `configure_audio_model()`, or pass `model=` for a single call.
+
 ## Environment variables
 
 The built-in defaults themselves read from environment variables at import time, so you can point them at a different server without writing any Python:
@@ -113,25 +223,39 @@ The built-in defaults themselves read from environment variables at import time,
 | `MODEL_EMBEDDINGGEMMA_API_KEY` | `testing` |
 | `MODEL_EMBEDDINGGEMMA_MODEL_ID` | `unsloth/embeddinggemma-300m-GGUF:Q8_0` |
 
-Note these only affect the *built-in* defaults (`chat`/`vision`/`reasoning`/`translation` all currently point at the Gemma4 config). `TRANSLATEGEMMA` and `EMBEDDINGGEMMA` are defined but not wired to a capability yet — reach for `configure()` if you want to use them.
+Note these only affect the *built-in* defaults. `chat`/`vision`/`reasoning`/`translation` and the video/audio defaults all currently point at the Gemma4 config; the embedding default points at `EMBEDDINGGEMMA_CONFIG`. `TRANSLATEGEMMA_CONFIG` is defined but not wired to any default — reach for `configure()` if you want to use it.
 
 ## Supported providers
 
-`ModelConfig.provider` accepts `llama.cpp`, `openai`, or `openrouter`. All three are OpenAI-compatible APIs under the hood, so they're all backed by `ChatOpenAI` — just point `base_url` at the right endpoint.
+`ModelConfig.provider` accepts `llama.cpp`, `openai`, or `openrouter`. All three are OpenAI-compatible APIs under the hood, so they're all backed by `ChatOpenAI` (or `OpenAIEmbeddings` for embeddings) — just point `base_url` at the right endpoint.
 
 ## API reference
 
 | Name | Description |
 |---|---|
-| `ModelConfig` | Frozen dataclass describing one model: `provider`, `base_url`, `api_key`, `model`, plus `temperature`, `timeout`, `max_tokens`, `streaming` |
+| `ModelConfig` | Frozen dataclass describing one model: `provider`, `base_url`, `api_key`, `model`, plus `temperature`, `timeout`, `max_tokens`, `streaming`, `supports_vision`, `supports_audio` |
 | `ChatModelCapability` | `Literal["chat", "vision", "reasoning", "translation"]` |
 | `ModelProvider` | `Literal["llama.cpp", "openai", "openrouter"]` |
+| `SimilarityMetric` | `Literal["cosine", "dot", "euclidean"]` |
 | `ModelsAvailable` | `dict[ChatModelCapability, ModelConfig]` |
 | `configure(**kwargs)` | Override the default `ModelConfig` for one or more capabilities |
+| `configure_embedding_model(model)` | Override the default embedding `ModelConfig` |
+| `configure_video_model(model)` | Override the default video `ModelConfig` |
+| `configure_audio_model(model)` | Override the default audio `ModelConfig` |
 | `reset_defaults()` | Clear all overrides, restoring the built-in defaults |
 | `get_model_config(capability, *, model=None)` | Resolve the effective `ModelConfig` for a capability |
+| `get_embedding_model_config(*, model=None)` | Resolve the effective embedding `ModelConfig` |
+| `get_video_model_config(*, model=None)` | Resolve the effective video `ModelConfig` |
+| `get_audio_model_config(*, model=None)` | Resolve the effective audio `ModelConfig` |
 | `init_model(*, capability="chat", model=None)` | Build a `BaseChatModel` for any capability |
 | `init_chat_model(*, model=None)` | Shortcut for `init_model(capability="chat")` |
 | `init_vision_model(*, model=None)` | Shortcut for `init_model(capability="vision")` |
 | `init_reasoning_model(*, model=None)` | Shortcut for `init_model(capability="reasoning")` |
 | `init_translation_model(*, model=None)` | Shortcut for `init_model(capability="translation")` |
+| `init_embedding_model(*, model=None)` | Build an `Embeddings` instance |
+| `similarity(a, b, *, metric="cosine")` | Compare two embedding vectors |
+| `init_audio_model(*, model=None)` | Build a `BaseChatModel` for a `supports_audio=True` model |
+| `init_video_model(*, model=None, ...)` | Build a `LlamaCppVideoAdapter` |
+| `LlamaCppVideoAdapter` | `.invoke(path, *, prompt=..., system_prompt=...)` / `.ainvoke(...)` — samples frames (and optionally audio) from a video file and sends them to a chat model |
+| `VideoInfo` | Dataclass: `path`, `duration_seconds`, `width`, `height`, `fps` — result of `LlamaCppVideoAdapter.probe()` |
+| `ExtractedFrame` | Dataclass: `path`, `timestamp_seconds` — one sampled video frame |
