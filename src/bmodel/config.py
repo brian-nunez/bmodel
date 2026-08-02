@@ -1,7 +1,7 @@
 from typing import get_args
 
 from .base import ModelConfig, ChatModelCapability, ModelsAvailable
-from .env import GEMMA4_CONFIG
+from .env import GEMMA4_CONFIG, EMBEDDINGGEMMA_CONFIG
 
 
 DEFAULT_MODELS: ModelsAvailable = {
@@ -11,13 +11,18 @@ DEFAULT_MODELS: ModelsAvailable = {
     "translation": GEMMA4_CONFIG,
 }
 
+DEFAULT_EMBEDDING_MODEL: ModelConfig = EMBEDDINGGEMMA_CONFIG
+
 _live_models: ModelsAvailable = dict(DEFAULT_MODELS)
+_live_embedding_model: ModelConfig = DEFAULT_EMBEDDING_MODEL
 
 
 def reset_defaults() -> ModelsAvailable:
     global _live_models
+    global _live_embedding_model
 
     _live_models = dict(DEFAULT_MODELS)
+    _live_embedding_model = DEFAULT_EMBEDDING_MODEL
 
     return dict(_live_models)
 
@@ -51,6 +56,24 @@ def configure(
     }
 
     return dict(_live_models)
+
+
+def configure_embedding_model(model: ModelConfig) -> ModelConfig:
+    global _live_embedding_model
+
+    _live_embedding_model = model
+
+    return _live_embedding_model
+
+
+def get_embedding_model_config(
+    *,
+    model: ModelConfig | None = None,
+) -> ModelConfig:
+    if model is not None:
+        return model
+
+    return _live_embedding_model
 
 
 def get_model_config(

@@ -4,7 +4,15 @@ import pytest
 
 import bmodel.config as config_module
 from bmodel.base import ChatModelCapability, ModelConfig
-from bmodel.config import DEFAULT_MODELS, configure, get_model_config, reset_defaults
+from bmodel.config import (
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_MODELS,
+    configure,
+    configure_embedding_model,
+    get_embedding_model_config,
+    get_model_config,
+    reset_defaults,
+)
 
 
 def _make_config(model: str) -> ModelConfig:
@@ -83,3 +91,31 @@ def test_reset_defaults_clears_overrides():
 
     assert get_model_config("chat") == DEFAULT_MODELS["chat"]
     assert result == DEFAULT_MODELS
+
+
+def test_get_embedding_model_config_returns_default():
+    assert get_embedding_model_config() == DEFAULT_EMBEDDING_MODEL
+
+
+def test_get_embedding_model_config_returns_explicit_model():
+    override = _make_config("embedding-override")
+
+    assert get_embedding_model_config(model=override) is override
+
+
+def test_configure_embedding_model_overrides_default():
+    override = _make_config("embedding-override")
+
+    configure_embedding_model(override)
+
+    assert get_embedding_model_config() == override
+
+
+def test_reset_defaults_clears_embedding_override():
+    override = _make_config("embedding-override")
+    configure_embedding_model(override)
+    assert get_embedding_model_config() == override
+
+    reset_defaults()
+
+    assert get_embedding_model_config() == DEFAULT_EMBEDDING_MODEL
