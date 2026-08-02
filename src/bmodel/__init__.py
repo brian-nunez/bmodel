@@ -1,5 +1,7 @@
 from .base import (
     ChatModelCapability,
+    CheckpointerBackend,
+    CheckpointerConfig,
     ModelProvider,
     ModelConfig,
     ModelsAvailable,
@@ -8,9 +10,11 @@ from .base import (
 from .config import (
     configure,
     configure_audio_model,
+    configure_checkpointer,
     configure_embedding_model,
     configure_video_model,
     get_audio_model_config,
+    get_checkpointer_config,
     get_embedding_model_config,
     get_model_config,
     get_video_model_config,
@@ -31,18 +35,24 @@ from .video import (
     VideoInfo,
     init_video_model,
 )
+from .checkpoint import init_checkpointer
+from .agent import init_agent
 
 __all__ = [
     "ChatModelCapability",
+    "CheckpointerBackend",
+    "CheckpointerConfig",
     "ModelProvider",
     "ModelConfig",
     "ModelsAvailable",
     "SimilarityMetric",
     "configure",
     "configure_audio_model",
+    "configure_checkpointer",
     "configure_embedding_model",
     "configure_video_model",
     "get_audio_model_config",
+    "get_checkpointer_config",
     "get_embedding_model_config",
     "get_model_config",
     "get_video_model_config",
@@ -59,4 +69,6 @@ __all__ = [
     "LlamaCppVideoAdapter",
     "VideoInfo",
     "init_video_model",
+    "init_checkpointer",
+    "init_agent",
 ]

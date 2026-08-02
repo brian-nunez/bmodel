@@ -20,6 +20,20 @@ SimilarityMetric = Literal[
     "euclidean",
 ]
 
+CheckpointerBackend = Literal[
+    "memory",
+    "sqlite",
+    "postgres",
+]
+
+
+@dataclass(frozen=True)
+class CheckpointerConfig:
+    backend: CheckpointerBackend = "memory"
+    sqlite_path: str | None = None
+    postgres_url: str | None = None
+    async_mode: bool = True
+
 
 @dataclass(frozen=True)
 class ModelConfig:

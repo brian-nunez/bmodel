@@ -12,6 +12,16 @@ dependencies = [
     "langchain[openai]>=1.3.14",
 ]
 
+[project.optional-dependencies]
+sqlite = ["langgraph-checkpoint-sqlite>=2.0.0"]
+postgres = [
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "psycopg[binary]>=3.2.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [tool.pyright]
 include = ["src", "tests"]
 venvPath = "."
@@ -20,5 +30,9 @@ venv = ".venv"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.0.0",
     "pytest-cov>=7.1.0",
+    "langgraph-checkpoint-sqlite>=2.0.0",
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "psycopg[binary]>=3.2.0",
 ]

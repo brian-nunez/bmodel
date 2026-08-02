@@ -3,17 +3,20 @@ from typing import cast
 import pytest
 
 import bmodel.config as config_module
-from bmodel.base import ChatModelCapability, ModelConfig
+from bmodel.base import ChatModelCapability, CheckpointerConfig, ModelConfig
 from bmodel.config import (
     DEFAULT_AUDIO_MODEL,
+    DEFAULT_CHECKPOINTER_CONFIG,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_MODELS,
     DEFAULT_VIDEO_MODEL,
     configure,
     configure_audio_model,
+    configure_checkpointer,
     configure_embedding_model,
     configure_video_model,
     get_audio_model_config,
+    get_checkpointer_config,
     get_embedding_model_config,
     get_model_config,
     get_video_model_config,
@@ -211,6 +214,34 @@ def test_reset_defaults_clears_audio_override():
     reset_defaults()
 
     assert get_audio_model_config() == DEFAULT_AUDIO_MODEL
+
+
+def test_get_checkpointer_config_returns_default():
+    assert get_checkpointer_config() == DEFAULT_CHECKPOINTER_CONFIG
+
+
+def test_get_checkpointer_config_returns_explicit_config():
+    override = CheckpointerConfig(backend="sqlite", sqlite_path="/tmp/checkpoints.db")
+
+    assert get_checkpointer_config(config=override) is override
+
+
+def test_configure_checkpointer_overrides_default():
+    override = CheckpointerConfig(backend="postgres", postgres_url="postgresql://x")
+
+    configure_checkpointer(override)
+
+    assert get_checkpointer_config() == override
+
+
+def test_reset_defaults_clears_checkpointer_override():
+    override = CheckpointerConfig(backend="sqlite", sqlite_path="/tmp/checkpoints.db")
+    configure_checkpointer(override)
+    assert get_checkpointer_config() == override
+
+    reset_defaults()
+
+    assert get_checkpointer_config() == DEFAULT_CHECKPOINTER_CONFIG
 
 
 def _make_unsupported_config(model: str) -> ModelConfig:
