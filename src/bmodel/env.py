@@ -16,6 +16,8 @@ GEMMA4_CONFIG = ModelConfig(
     base_url=MODEL_GEMMA4_URL or "",
     api_key=MODEL_GEMMA4_API_KEY,
     model=MODEL_GEMMA4_MODEL_ID,
+    supports_vision=True,
+    supports_audio=True,
 )
 
 TRANSLATEGEMMA_CONFIG = ModelConfig(

@@ -32,6 +32,8 @@ class ModelConfig:
     timeout: int = 300
     max_tokens: int | None = None
     streaming: bool = True
+    supports_vision: bool = False
+    supports_audio: bool = False
 
 
 ModelsAvailable = dict[ChatModelCapability, ModelConfig]
