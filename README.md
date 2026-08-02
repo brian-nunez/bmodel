@@ -24,6 +24,13 @@ For local development against a checked-out copy of this repo:
 uv add --editable /path/to/bmodel
 ```
 
+Persisting conversation state to SQLite or Postgres pulls in extra drivers, so those are optional extras — only install them if you need that backend:
+
+```bash
+uv add "bmodel[sqlite] @ git+https://git.b8z.me/brian/bmodel"
+uv add "bmodel[postgres] @ git+https://git.b8z.me/brian/bmodel"
+```
+
 ## Quick start
 
 ```python
@@ -207,6 +214,103 @@ result = audio_model.invoke([message])
 
 Override the default with `configure_audio_model()`, or pass `model=` for a single call.
 
+## Agents
+
+```python
+import asyncio
+from bmodel import init_agent
+
+async def main():
+    agent = await init_agent(tools=[])
+    result = await agent.ainvoke(
+        {"messages": [{"role": "user", "content": "hi"}]},
+        config={"configurable": {"thread_id": "conversation-1"}},
+    )
+    print(result)
+
+asyncio.run(main())
+```
+
+`init_agent()` is a thin wrapper around LangChain's `create_agent()`: it resolves a chat model and a checkpointer, then returns whatever `create_agent()` returns, untouched — every method on the result (`.ainvoke()`, `.invoke()`, `.astream()`, `.get_state()`, etc.) works exactly as documented upstream, nothing bmodel-specific to learn. `tools` is required; any other `create_agent()` keyword argument (`system_prompt`, `response_format`, `middleware`, and so on) is passed straight through.
+
+`init_agent()` is itself `async`, so it must be awaited — `agent = await init_agent(...)`, not `agent = init_agent(...)`. This is because building a persistent checkpointer (below) can require an awaited database connection.
+
+By default the agent uses the `chat` capability's model, same as `init_chat_model()`. Pass `model=` to use a different `ModelConfig` for just this agent:
+
+```python
+from bmodel import init_agent, ModelConfig
+
+agent = await init_agent(
+    tools=[],
+    model=ModelConfig(
+        provider="openai",
+        base_url="https://api.openai.com/v1",
+        api_key="sk-...",
+        model="gpt-4o",
+    ),
+)
+```
+
+### Checkpointing
+
+Agents persist conversation state — keyed by the `thread_id` you pass in `config={"configurable": {"thread_id": ...}}` — via a LangGraph checkpointer. Three backends are supported: `memory` (the default, no setup required), `sqlite`, and `postgres`.
+
+Pass a `CheckpointerConfig` to use `sqlite` or `postgres` for a single agent:
+
+```python
+from bmodel import init_agent, CheckpointerConfig
+
+agent = await init_agent(
+    tools=[],
+    checkpointer=CheckpointerConfig(
+        backend="sqlite",
+        sqlite_path="/data/checkpoints.db",
+    ),
+)
+```
+
+`postgres` requires `postgres_url`:
+
+```python
+agent = await init_agent(
+    tools=[],
+    checkpointer=CheckpointerConfig(
+        backend="postgres",
+        postgres_url="postgresql://user:pass@10.0.0.5:5432/bmodel",
+    ),
+)
+```
+
+Set a shared default once at your app's startup with `configure_checkpointer()` — every `init_agent()` call after that picks it up automatically, the same pattern as `configure()` for chat models:
+
+```python
+from bmodel import configure_checkpointer, CheckpointerConfig
+
+configure_checkpointer(
+    CheckpointerConfig(
+        backend="sqlite",
+        sqlite_path="/data/checkpoints.db",
+    )
+)
+
+agent = await init_agent(tools=[])  # uses the configured sqlite backend
+```
+
+Or skip configuration entirely and pass an already-built LangGraph checkpointer instance directly:
+
+```python
+from langgraph.checkpoint.memory import InMemorySaver
+
+agent = await init_agent(
+    tools=[],
+    checkpointer=InMemorySaver(),
+)
+```
+
+`sqlite` and `postgres` checkpointers are async by default (`CheckpointerConfig.async_mode=True`), matching `init_agent()`'s own async construction. Set `async_mode=False` if the agent will only ever be called synchronously (`.invoke()`, never `.ainvoke()`) — a checkpointer built for one mode raises `NotImplementedError` if used in the other. `memory` supports both modes natively, so `async_mode` has no effect on it.
+
+The `sqlite` and `postgres` backends need their own drivers installed — `uv add "bmodel[sqlite] @ ..."` or `uv add "bmodel[postgres] @ ..."` — `memory` needs nothing extra.
+
 ## Environment variables
 
 The built-in defaults themselves read from environment variables at import time, so you can point them at a different server without writing any Python:
@@ -238,15 +342,19 @@ Note these only affect the *built-in* defaults. `chat`/`vision`/`reasoning`/`tra
 | `ModelProvider` | `Literal["llama.cpp", "openai", "openrouter"]` |
 | `SimilarityMetric` | `Literal["cosine", "dot", "euclidean"]` |
 | `ModelsAvailable` | `dict[ChatModelCapability, ModelConfig]` |
+| `CheckpointerConfig` | Frozen dataclass describing one checkpointer: `backend` (`"memory"` \| `"sqlite"` \| `"postgres"`), `sqlite_path`, `postgres_url`, `async_mode` (default `True`) |
+| `CheckpointerBackend` | `Literal["memory", "sqlite", "postgres"]` |
 | `configure(**kwargs)` | Override the default `ModelConfig` for one or more capabilities |
 | `configure_embedding_model(model)` | Override the default embedding `ModelConfig` |
 | `configure_video_model(model)` | Override the default video `ModelConfig` |
 | `configure_audio_model(model)` | Override the default audio `ModelConfig` |
+| `configure_checkpointer(config)` | Override the default `CheckpointerConfig` used by `init_agent()` |
 | `reset_defaults()` | Clear all overrides, restoring the built-in defaults |
 | `get_model_config(capability, *, model=None)` | Resolve the effective `ModelConfig` for a capability |
 | `get_embedding_model_config(*, model=None)` | Resolve the effective embedding `ModelConfig` |
 | `get_video_model_config(*, model=None)` | Resolve the effective video `ModelConfig` |
 | `get_audio_model_config(*, model=None)` | Resolve the effective audio `ModelConfig` |
+| `get_checkpointer_config(*, config=None)` | Resolve the effective `CheckpointerConfig` |
 | `init_model(*, capability="chat", model=None)` | Build a `BaseChatModel` for any capability |
 | `init_chat_model(*, model=None)` | Shortcut for `init_model(capability="chat")` |
 | `init_vision_model(*, model=None)` | Shortcut for `init_model(capability="vision")` |
@@ -259,3 +367,5 @@ Note these only affect the *built-in* defaults. `chat`/`vision`/`reasoning`/`tra
 | `LlamaCppVideoAdapter` | `.invoke(path, *, prompt=..., system_prompt=...)` / `.ainvoke(...)` — samples frames (and optionally audio) from a video file and sends them to a chat model |
 | `VideoInfo` | Dataclass: `path`, `duration_seconds`, `width`, `height`, `fps` — result of `LlamaCppVideoAdapter.probe()` |
 | `ExtractedFrame` | Dataclass: `path`, `timestamp_seconds` — one sampled video frame |
+| `init_checkpointer(*, config=None)` | `async` — build a LangGraph `BaseCheckpointSaver` from a `CheckpointerConfig` |
+| `init_agent(*, tools, model=None, checkpointer=None, **kwargs)` | `async` — build an agent via `create_agent()`; `checkpointer` accepts a `CheckpointerConfig`, a raw `BaseCheckpointSaver`, or `None` for the configured default |

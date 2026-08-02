@@ -1,6 +1,6 @@
 from typing import get_args
 
-from .base import ModelConfig, ChatModelCapability, ModelsAvailable
+from .base import CheckpointerConfig, ModelConfig, ChatModelCapability, ModelsAvailable
 from .env import GEMMA4_CONFIG, EMBEDDINGGEMMA_CONFIG
 
 
@@ -14,11 +14,13 @@ DEFAULT_MODELS: ModelsAvailable = {
 DEFAULT_EMBEDDING_MODEL: ModelConfig = EMBEDDINGGEMMA_CONFIG
 DEFAULT_VIDEO_MODEL: ModelConfig = GEMMA4_CONFIG
 DEFAULT_AUDIO_MODEL: ModelConfig = GEMMA4_CONFIG
+DEFAULT_CHECKPOINTER_CONFIG: CheckpointerConfig = CheckpointerConfig()
 
 _live_models: ModelsAvailable = dict(DEFAULT_MODELS)
 _live_embedding_model: ModelConfig = DEFAULT_EMBEDDING_MODEL
 _live_video_model: ModelConfig = DEFAULT_VIDEO_MODEL
 _live_audio_model: ModelConfig = DEFAULT_AUDIO_MODEL
+_live_checkpointer_config: CheckpointerConfig = DEFAULT_CHECKPOINTER_CONFIG
 
 
 def reset_defaults() -> ModelsAvailable:
@@ -26,11 +28,13 @@ def reset_defaults() -> ModelsAvailable:
     global _live_embedding_model
     global _live_video_model
     global _live_audio_model
+    global _live_checkpointer_config
 
     _live_models = dict(DEFAULT_MODELS)
     _live_embedding_model = DEFAULT_EMBEDDING_MODEL
     _live_video_model = DEFAULT_VIDEO_MODEL
     _live_audio_model = DEFAULT_AUDIO_MODEL
+    _live_checkpointer_config = DEFAULT_CHECKPOINTER_CONFIG
 
     return dict(_live_models)
 
@@ -132,6 +136,24 @@ def get_audio_model_config(
         )
 
     return resolved
+
+
+def configure_checkpointer(config: CheckpointerConfig) -> CheckpointerConfig:
+    global _live_checkpointer_config
+
+    _live_checkpointer_config = config
+
+    return _live_checkpointer_config
+
+
+def get_checkpointer_config(
+    *,
+    config: CheckpointerConfig | None = None,
+) -> CheckpointerConfig:
+    if config is not None:
+        return config
+
+    return _live_checkpointer_config
 
 
 def get_model_config(
