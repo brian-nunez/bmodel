@@ -64,23 +64,35 @@ def test_configure_overrides_single_capability():
     assert get_model_config("vision") == DEFAULT_MODELS["vision"]
 
 
+def test_configure_overrides_code_capability():
+    override = _make_config("code-override")
+
+    configure(code_model=override)
+
+    assert get_model_config("code") == override
+    assert get_model_config("chat") == DEFAULT_MODELS["chat"]
+
+
 def test_configure_overrides_all_capabilities():
     chat = _make_config("chat-model")
     vision = _make_config("vision-model")
     reasoning = _make_config("reasoning-model")
     translation = _make_config("translation-model")
+    code = _make_config("code-model")
 
     configure(
         chat_model=chat,
         vision_model=vision,
         reasoning_model=reasoning,
         translation_model=translation,
+        code_model=code,
     )
 
     assert get_model_config("chat") == chat
     assert get_model_config("vision") == vision
     assert get_model_config("reasoning") == reasoning
     assert get_model_config("translation") == translation
+    assert get_model_config("code") == code
 
 
 def test_configure_with_no_arguments_leaves_defaults_unchanged():

@@ -38,3 +38,16 @@ MODEL_EMBEDDINGGEMMA_MODEL_ID = os.getenv(
     "MODEL_EMBEDDINGGEMMA_MODEL_ID",
     "unsloth/embeddinggemma-300m-GGUF:Q8_0",
 )
+
+MODEL_CODEGEMMA_URL = os.getenv(
+    "MODEL_CODEGEMMA_URL",
+    "http://10.0.0.119:8081/v1",
+)
+MODEL_CODEGEMMA_API_KEY = os.getenv(
+    "MODEL_CODEGEMMA_API_KEY",
+    "testing",
+)
+MODEL_CODEGEMMA_MODEL_ID = os.getenv(
+    "MODEL_CODEGEMMA_MODEL_ID",
+    "codegemma-2b-Q4_K_M.gguf",
+)

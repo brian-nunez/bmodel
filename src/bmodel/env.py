@@ -9,6 +9,9 @@ from .registry import (
     MODEL_EMBEDDINGGEMMA_URL,
     MODEL_EMBEDDINGGEMMA_API_KEY,
     MODEL_EMBEDDINGGEMMA_MODEL_ID,
+    MODEL_CODEGEMMA_URL,
+    MODEL_CODEGEMMA_API_KEY,
+    MODEL_CODEGEMMA_MODEL_ID,
 )
 
 GEMMA4_CONFIG = ModelConfig(
@@ -32,4 +35,12 @@ EMBEDDINGGEMMA_CONFIG = ModelConfig(
     base_url=MODEL_EMBEDDINGGEMMA_URL or "",
     api_key=MODEL_EMBEDDINGGEMMA_API_KEY,
     model=MODEL_EMBEDDINGGEMMA_MODEL_ID,
+)
+
+CODEGEMMA_CONFIG = ModelConfig(
+    provider="llama.cpp",
+    base_url=MODEL_CODEGEMMA_URL or "",
+    api_key=MODEL_CODEGEMMA_API_KEY,
+    model=MODEL_CODEGEMMA_MODEL_ID,
+    stop=["<|im_end|>"],
 )
