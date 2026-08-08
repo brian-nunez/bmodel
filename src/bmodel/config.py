@@ -1,7 +1,7 @@
 from typing import get_args
 
 from .base import ModelConfig, ChatModelCapability, ModelsAvailable
-from .env import GEMMA4_CONFIG, EMBEDDINGGEMMA_CONFIG
+from .env import GEMMA4_CONFIG, EMBEDDINGGEMMA_CONFIG, CODEGEMMA_CONFIG
 
 
 DEFAULT_MODELS: ModelsAvailable = {
@@ -9,6 +9,7 @@ DEFAULT_MODELS: ModelsAvailable = {
     "vision": GEMMA4_CONFIG,
     "reasoning": GEMMA4_CONFIG,
     "translation": GEMMA4_CONFIG,
+    "code": CODEGEMMA_CONFIG,
 }
 
 DEFAULT_EMBEDDING_MODEL: ModelConfig = EMBEDDINGGEMMA_CONFIG
@@ -41,6 +42,7 @@ def configure(
     vision_model: ModelConfig | None = None,
     reasoning_model: ModelConfig | None = None,
     translation_model: ModelConfig | None = None,
+    code_model: ModelConfig | None = None,
 ):
     global _live_models
 
@@ -57,6 +59,9 @@ def configure(
 
     if translation_model is not None:
         updated_models["translation"] = translation_model
+
+    if code_model is not None:
+        updated_models["code"] = code_model
 
     _live_models = {
         **_live_models,

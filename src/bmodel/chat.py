@@ -20,6 +20,7 @@ def build_chat_model(config: ModelConfig) -> BaseChatModel:
                 streaming=config.streaming,
                 max_completion_tokens=config.max_tokens,
                 stream_usage=True,
+                stop_sequences=config.stop,
             )
         case _:
             raise ValueError(

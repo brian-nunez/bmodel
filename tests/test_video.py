@@ -253,6 +253,32 @@ def test_extract_frames_raises_when_no_frames_written(adapter, tmp_path):
             adapter.extract_frames(video_path, output_dir)
 
 
+def test_extract_frames_supports_png_format(monkeypatch, tmp_path):
+    monkeypatch.setattr("bmodel.video.shutil.which", lambda name: f"/usr/bin/{name}")
+    adapter = LlamaCppVideoAdapter(model=MagicMock(), image_format="png")
+
+    video_path = tmp_path / "video.mp4"
+    video_path.write_bytes(b"fake")
+    output_dir = tmp_path / "frames"
+    fake_info = VideoInfo(path=video_path, duration_seconds=3.0, width=100, height=100, fps=30.0)
+    commands = []
+
+    def fake_run(command):
+        commands.append(command)
+        (output_dir / "frame-000001.png").write_bytes(b"fake-image-bytes")
+        return MagicMock()
+
+    with (
+        patch.object(adapter, "probe", return_value=fake_info),
+        patch.object(adapter, "_run", side_effect=fake_run),
+    ):
+        frames = adapter.extract_frames(video_path, output_dir)
+
+    assert len(frames) == 1
+    assert frames[0].path == output_dir / "frame-000001.png"
+    assert "-q:v" not in commands[0]
+
+
 # --- extract_audio ---
 
 

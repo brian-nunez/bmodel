@@ -6,6 +6,7 @@ ChatModelCapability = Literal[
     "vision",
     "reasoning",
     "translation",
+    "code",
 ]
 
 ModelProvider = Literal[
@@ -34,6 +35,7 @@ class ModelConfig:
     streaming: bool = True
     supports_vision: bool = False
     supports_audio: bool = False
+    stop: list[str] | None = None
 
 
 ModelsAvailable = dict[ChatModelCapability, ModelConfig]
